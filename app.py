@@ -381,8 +381,11 @@ def main() -> None:
         st.divider()
         st.subheader("Feedback for this cycle")
         score_pct = fb.get("score_percent", 0)
-        st.metric("Score (self-reported)", f"{score_pct}%")
         perfect = score_pct == 100.0 or score_pct == 100
+        st.metric(
+            "Score (self-reported)",
+            "100%🎉" if perfect else f"{score_pct}%",
+        )
         if perfect:
             st.success("Perfect score — nice work!")
         focus_heading = "Great job!" if perfect else "What to focus on next"
