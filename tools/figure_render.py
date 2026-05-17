@@ -14,8 +14,16 @@ import numpy as np
 import streamlit as st
 from matplotlib.patches import Circle, Polygon, Rectangle
 from tools.diagram_models import QuestionDiagram
+from tools.math_render import to_matplotlib_math
 
 logger = logging.getLogger(__name__)
+
+
+def _mpl(text: str | None) -> str | None:
+    """Matplotlib-ready label (None/empty unchanged)."""
+    if not text:
+        return text
+    return to_matplotlib_math(text)
 
 # Room inside the figure so labels, legend, and points are not clipped.
 _FIGSIZE_SQUARE = (4.6, 4.6)
@@ -81,7 +89,7 @@ def _parse_diagram(data: Any) -> QuestionDiagram | None:
 
 def _style_axes(ax: plt.Axes, *, title: str, equal_aspect: bool = False) -> None:
     if title:
-        ax.set_title(title, fontsize=11)
+        ax.set_title(_mpl(title) or title, fontsize=11)
     ax.axhline(0, color="#666", linewidth=0.8)
     ax.axvline(0, color="#666", linewidth=0.8)
     if equal_aspect:
@@ -101,16 +109,27 @@ def _draw_graph(d: Any) -> plt.Figure:
     xs = np.linspace(x0, x1, 200)
     for line in d.lines:
         if line.x1 is not None and line.x2 is not None and line.y1 is not None and line.y2 is not None:
-            ax.plot([line.x1, line.x2], [line.y1, line.y2], linewidth=2, label=line.label or None)
+            ax.plot(
+                [line.x1, line.x2],
+                [line.y1, line.y2],
+                linewidth=2,
+                label=_mpl(line.label) if line.label else None,
+            )
         elif line.slope is not None:
             ys = line.slope * xs + (line.intercept or 0)
-            ax.plot(xs, ys, linewidth=2, label=line.label or None)
+            ax.plot(xs, ys, linewidth=2, label=_mpl(line.label) if line.label else None)
         elif line.intercept is not None:
-            ax.axhline(line.intercept, linewidth=2, label=line.label or None)
+            ax.axhline(line.intercept, linewidth=2, label=_mpl(line.label) if line.label else None)
     for pt in d.graph_points:
         ax.plot(pt.x, pt.y, "o", color="#c2185b", markersize=7)
         if pt.label:
-            ax.annotate(pt.label, (pt.x, pt.y), textcoords="offset points", xytext=(6, 6), fontsize=9)
+            ax.annotate(
+                _mpl(pt.label) or pt.label,
+                (pt.x, pt.y),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=9,
+            )
     if d.lines:
         ax.legend(loc="upper left", fontsize=8, framealpha=0.9)
     _style_axes(ax, title=d.title)
@@ -131,7 +150,13 @@ def _draw_polygon(d: Any) -> plt.Figure:
     for v in d.vertices:
         ax.plot(v.x, v.y, "o", color="#c2185b", markersize=6)
         if v.label:
-            ax.annotate(v.label, (v.x, v.y), textcoords="offset points", xytext=(6, 6), fontsize=9)
+            ax.annotate(
+                _mpl(v.label) or v.label,
+                (v.x, v.y),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=9,
+            )
     x0, x1, y0, y1 = _padded_limits(min(xs), max(xs), min(ys), max(ys))
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -149,11 +174,23 @@ def _draw_right_triangle(d: Any) -> plt.Figure:
     ax.add_patch(patch)
     ax.plot([0, d.leg_x, 0, 0], [0, 0, d.leg_y, 0], "o", color="#c2185b", markersize=6)
     if d.label_horizontal:
-        ax.annotate(d.label_horizontal, (d.leg_x / 2, 0), textcoords="offset points", xytext=(0, -12), ha="center")
+        ax.annotate(
+            _mpl(d.label_horizontal) or d.label_horizontal,
+            (d.leg_x / 2, 0),
+            textcoords="offset points",
+            xytext=(0, -12),
+            ha="center",
+        )
     if d.label_vertical:
-        ax.annotate(d.label_vertical, (0, d.leg_y / 2), textcoords="offset points", xytext=(-12, 0), va="center")
+        ax.annotate(
+            _mpl(d.label_vertical) or d.label_vertical,
+            (0, d.leg_y / 2),
+            textcoords="offset points",
+            xytext=(-12, 0),
+            va="center",
+        )
     if d.label_hypotenuse:
-        ax.annotate(d.label_hypotenuse, (d.leg_x / 2, d.leg_y / 2), fontsize=9)
+        ax.annotate(_mpl(d.label_hypotenuse) or d.label_hypotenuse, (d.leg_x / 2, d.leg_y / 2), fontsize=9)
     x0, x1, y0, y1 = _padded_limits(0, d.leg_x, 0, d.leg_y, pad_frac=0.22)
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -168,9 +205,21 @@ def _draw_rectangle(d: Any) -> plt.Figure:
     rect = Rectangle((0, 0), d.width, d.height, fill=False, edgecolor="#1565c0", linewidth=2)
     ax.add_patch(rect)
     if d.label_width:
-        ax.annotate(d.label_width, (d.width / 2, 0), textcoords="offset points", xytext=(0, -12), ha="center")
+        ax.annotate(
+            _mpl(d.label_width) or d.label_width,
+            (d.width / 2, 0),
+            textcoords="offset points",
+            xytext=(0, -12),
+            ha="center",
+        )
     if d.label_height:
-        ax.annotate(d.label_height, (0, d.height / 2), textcoords="offset points", xytext=(-14, 0), va="center")
+        ax.annotate(
+            _mpl(d.label_height) or d.label_height,
+            (0, d.height / 2),
+            textcoords="offset points",
+            xytext=(-14, 0),
+            va="center",
+        )
     x0, x1, y0, y1 = _padded_limits(0, d.width, 0, d.height, pad_frac=0.22)
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -208,7 +257,7 @@ def _draw_number_line(d: Any) -> plt.Figure:
         ax.text(t, 0.38, str(t), ha="center", fontsize=8)
     for pt in d.number_line_points:
         ax.plot(pt.value, 0.5, "o", color="#c2185b", markersize=8)
-        label = pt.label or str(pt.value)
+        label = _mpl(pt.label) if pt.label else str(pt.value)
         ax.annotate(label, (pt.value, 0.5), textcoords="offset points", xytext=(0, 14), ha="center", fontsize=9)
     span = (d.number_line_max - d.number_line_min) or 1.0
     side = max(0.8, span * 0.12)
@@ -216,7 +265,7 @@ def _draw_number_line(d: Any) -> plt.Figure:
     ax.set_ylim(-0.05, 1.12)
     ax.axis("off")
     if d.title:
-        ax.set_title(d.title, fontsize=11, pad=10)
+        ax.set_title(_mpl(d.title) or d.title, fontsize=11, pad=10)
     _finalize_figure(fig)
     return fig
 

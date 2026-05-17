@@ -84,6 +84,18 @@ def render_math_text(text: str) -> None:
     components.html(page, height=h, scrolling=True)
 
 
+def to_matplotlib_math(text: str | None) -> str | None:
+    """Convert tutor LaTeX delimiters to matplotlib mathtext (`$...$`)."""
+    if text is None:
+        return None
+    t = str(text).strip()
+    if not t:
+        return text if text is not None else None
+    t = re.sub(r"\\\[(.+?)\\\]", r"$\1$", t, flags=re.DOTALL)
+    t = re.sub(r"\\\((.+?)\\\)", r"$\1$", t, flags=re.DOTALL)
+    return t
+
+
 def _markdown_for_streamlit(text: str) -> str:
     """Map LaTeX delimiters used by the tutor to Streamlit markdown math."""
     t = str(text)
