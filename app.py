@@ -109,7 +109,7 @@ def _inject_pastel_theme() -> None:
             color: var(--pastel-text);
             border-radius: 999px;
           }
-          /* Slider: accent on filled track + thumb; neutral unfilled track */
+          /* Slider: pink only on track + thumb (never on labels or numbers) */
           [data-testid="stSlider"] [data-baseweb="slider"] {
             background-color: rgba(45, 52, 54, 0.12) !important;
           }
@@ -120,23 +120,31 @@ def _inject_pastel_theme() -> None:
             background-color: var(--pastel-accent) !important;
             border-color: var(--pastel-accent-deep) !important;
           }
+          [data-testid="stSlider"] label,
+          [data-testid="stSlider"] label *,
           [data-testid="stSlider"] [data-testid="stTickBarMin"],
           [data-testid="stSlider"] [data-testid="stTickBarMax"],
-          [data-testid="stSlider"] label,
-          [data-testid="stSlider"] label * {
-            background: transparent !important;
+          [data-testid="stSlider"] [data-testid="stTickBarMin"] *,
+          [data-testid="stSlider"] [data-testid="stTickBarMax"] *,
+          [data-testid="stSlider"] [data-testid="stThumbValue"],
+          [data-testid="stSlider"] [data-testid="stThumbValue"] * {
+            background: none !important;
             background-color: transparent !important;
             color: var(--pastel-text) !important;
+            -webkit-text-fill-color: var(--pastel-text) !important;
           }
-          /* Checkbox: accent on the box + check only */
+          /* Checkbox: pink box + white check only */
           [data-testid="stCheckbox"] label,
-          [data-testid="stCheckbox"] label p,
-          [data-testid="stCheckbox"] label span,
-          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] {
-            background: transparent !important;
+          [data-testid="stCheckbox"] label:has(input:checked),
+          [data-testid="stCheckbox"] label:has([aria-checked="true"]),
+          [data-testid="stCheckbox"] label *,
+          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"],
+          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] * {
+            background: none !important;
             background-color: transparent !important;
             color: var(--pastel-text) !important;
           }
+          [data-testid="stCheckbox"] [role="checkbox"],
           [data-testid="stCheckbox"] [data-checked="true"],
           [data-testid="stCheckbox"] input:checked + div {
             background-color: var(--pastel-accent) !important;
@@ -145,50 +153,42 @@ def _inject_pastel_theme() -> None:
           [data-testid="stCheckbox"] svg {
             stroke: #ffffff !important;
           }
-          /* Main page: neutral vertical scrollbar (no bright bar on the right) */
+          /* All scrollbars: neutral thumb + light gray track (no pink) */
           .stApp,
           [data-testid="stAppViewContainer"],
           [data-testid="stMain"],
           [data-testid="stMainBlockContainer"],
-          section.main {
-            scrollbar-color: rgba(45, 52, 54, 0.22) transparent;
+          section.main,
+          [data-testid="stSidebar"],
+          [data-testid="stSidebar"] > div:first-child {
+            scrollbar-color: rgba(45, 52, 54, 0.3) rgba(236, 239, 243, 0.95);
             scrollbar-width: thin;
           }
           .stApp ::-webkit-scrollbar,
           [data-testid="stAppViewContainer"] ::-webkit-scrollbar,
           [data-testid="stMain"] ::-webkit-scrollbar,
-          section.main ::-webkit-scrollbar {
+          section.main ::-webkit-scrollbar,
+          [data-testid="stSidebar"] ::-webkit-scrollbar,
+          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
           }
           .stApp ::-webkit-scrollbar-thumb,
           [data-testid="stAppViewContainer"] ::-webkit-scrollbar-thumb,
           [data-testid="stMain"] ::-webkit-scrollbar-thumb,
-          section.main ::-webkit-scrollbar-thumb {
-            background: rgba(45, 52, 54, 0.2);
+          section.main ::-webkit-scrollbar-thumb,
+          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb,
+          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar-thumb {
+            background: rgba(45, 52, 54, 0.28);
             border-radius: 6px;
           }
           .stApp ::-webkit-scrollbar-track,
           [data-testid="stAppViewContainer"] ::-webkit-scrollbar-track,
           [data-testid="stMain"] ::-webkit-scrollbar-track,
-          section.main ::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          /* Sidebar: soft pink scrollbar thumb only */
-          [data-testid="stSidebar"] {
-            scrollbar-color: rgba(255, 107, 138, 0.55) rgba(255, 255, 255, 0.25);
-            scrollbar-width: thin;
-          }
-          [data-testid="stSidebar"] ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-          }
-          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
-            background: rgba(255, 107, 138, 0.45);
-            border-radius: 6px;
-          }
-          [data-testid="stSidebar"] ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.2);
+          section.main ::-webkit-scrollbar-track,
+          [data-testid="stSidebar"] ::-webkit-scrollbar-track,
+          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar-track {
+            background: rgba(236, 239, 243, 0.95);
             border-radius: 6px;
           }
           [data-testid="stSpinner"] label {
