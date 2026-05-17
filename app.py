@@ -42,6 +42,8 @@ def _inject_pastel_theme() -> None:
             --pastel-lime: #d5ff80;
             --pastel-yellow: #fff176;
             --pastel-lavender: #d1c4e9;
+            --pastel-accent: #ff6b8a;
+            --pastel-accent-deep: #ff7043;
             --pastel-text: #2d3436;
           }
           .stApp {
@@ -106,6 +108,48 @@ def _inject_pastel_theme() -> None:
             background: var(--pastel-peach);
             color: var(--pastel-text);
             border-radius: 999px;
+          }
+          /* Accent: sliders, checkboxes, radios (theme primary + explicit overrides) */
+          .stSlider [data-baseweb="slider"] > div > div {
+            background-color: var(--pastel-accent-deep) !important;
+          }
+          .stSlider [data-baseweb="slider"] [role="slider"] {
+            background-color: var(--pastel-accent) !important;
+            border-color: var(--pastel-accent-deep) !important;
+          }
+          [data-testid="stCheckbox"] [data-checked="true"],
+          [data-testid="stCheckbox"] input:checked + div {
+            background-color: var(--pastel-accent) !important;
+            border-color: var(--pastel-accent-deep) !important;
+          }
+          [data-testid="stCheckbox"] svg {
+            stroke: #ffffff !important;
+          }
+          /* Scrollbars (sidebar + main) */
+          .stApp,
+          [data-testid="stSidebar"] {
+            scrollbar-color: var(--pastel-accent-deep) rgba(255, 255, 255, 0.45);
+            scrollbar-width: thin;
+          }
+          .stApp ::-webkit-scrollbar,
+          [data-testid="stSidebar"] ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+          }
+          .stApp ::-webkit-scrollbar-thumb,
+          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+            background: linear-gradient(
+              180deg,
+              var(--pastel-accent),
+              var(--pastel-accent-deep)
+            );
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+          }
+          .stApp ::-webkit-scrollbar-track,
+          [data-testid="stSidebar"] ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
           }
           [data-testid="stSpinner"] label {
             white-space: nowrap;
