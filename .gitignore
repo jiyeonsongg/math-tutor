@@ -10,3 +10,4 @@ wheels/
 .venv
 .env
 study_sessions.json
+user_data/

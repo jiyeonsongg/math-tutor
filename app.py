@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,8 +22,9 @@ from tools.quiz_tools import (
     normalize_question_id,
     normalize_questions_list,
 )
+from tools.user_identity import ensure_visitor_id
 
-SESSION_FILE = Path(__file__).resolve().parent / "study_sessions.json"
+SESSIONS_DIR = Path(__file__).resolve().parent / "user_data" / "sessions"
 
 
 def _display_label(value: str) -> str:
@@ -142,18 +144,28 @@ def _inject_pastel_theme() -> None:
     )
 
 
-def _load_disk_sessions() -> list[dict[str, Any]]:
-    if not SESSION_FILE.is_file():
+def _sessions_file(visitor_id: str) -> Path:
+    safe = re.sub(r"[^0-9a-fA-F-]", "", visitor_id).lower() or "unknown"
+    return SESSIONS_DIR / f"{safe}.json"
+
+
+def _load_disk_sessions(visitor_id: str) -> list[dict[str, Any]]:
+    path = _sessions_file(visitor_id)
+    if not path.is_file():
         return []
     try:
-        raw = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
         return raw if isinstance(raw, list) else []
     except (json.JSONDecodeError, OSError):
         return []
 
 
-def _save_disk_sessions(rows: list[dict[str, Any]]) -> None:
-    SESSION_FILE.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+def _save_disk_sessions(rows: list[dict[str, Any]], *, visitor_id: str) -> None:
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    _sessions_file(visitor_id).write_text(
+        json.dumps(rows, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def reset_memory(*, include_saved_sessions: bool = False) -> None:
@@ -163,7 +175,9 @@ def reset_memory(*, include_saved_sessions: bool = False) -> None:
     st.session_state.selected_cycle_idx = None
     if include_saved_sessions:
         st.session_state.cycles = []
-        _save_disk_sessions([])
+        vid = st.session_state.get("visitor_id")
+        if vid:
+            _save_disk_sessions([], visitor_id=vid)
     for k in list(st.session_state.keys()):
         if isinstance(k, str) and (
             k.startswith("wrong_")
@@ -174,9 +188,9 @@ def reset_memory(*, include_saved_sessions: bool = False) -> None:
     st.rerun()
 
 
-def _init_session_state() -> None:
+def _init_session_state(visitor_id: str) -> None:
     if "cycles" not in st.session_state:
-        st.session_state.cycles = _load_disk_sessions()
+        st.session_state.cycles = _load_disk_sessions(visitor_id)
     if "active_pack" not in st.session_state:
         st.session_state.active_pack = None
     if "last_feedback" not in st.session_state:
@@ -230,6 +244,7 @@ def _sidebar_settings() -> dict[str, Any]:
 
     st.sidebar.divider()
     st.sidebar.subheader("📚Past Study Sessions")
+    st.sidebar.caption("History is saved only in this browser (private to you).")
     if not st.session_state.cycles:
         st.sidebar.caption("Completed study cycles will appear here with your score.")
     else:
@@ -301,7 +316,8 @@ def _generate_practice_set(settings: dict[str, Any]) -> None:
 def main() -> None:
     st.set_page_config(page_title="Math tutor", layout="wide")
     _inject_pastel_theme()
-    _init_session_state()
+    visitor_id = ensure_visitor_id()
+    _init_session_state(visitor_id)
 
     st.title("🧞Jinni: Your Intelligent Math Tutor💫")
     st.caption(
@@ -393,7 +409,10 @@ def main() -> None:
                     "cycle_summary": fb.get("cycle_summary", ""),
                 }
                 st.session_state.cycles.append(row)
-                _save_disk_sessions(st.session_state.cycles)
+                _save_disk_sessions(
+                    st.session_state.cycles,
+                    visitor_id=st.session_state.visitor_id,
+                )
                 st.success("Cycle saved — find it in the sidebar with your score.")
                 st.rerun()
 
