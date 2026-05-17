@@ -12,10 +12,113 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from main import graph
-from tools.math_render import render_math_text
+from tools.learning_resources import render_learning_resources
+from tools.math_render import render_feedback_text, render_math_text
 from tools.document_extract import merge_excerpt_parts, text_from_public_url, text_from_upload
+from tools.figure_render import render_question_diagram
+from tools.quiz_tools import (
+    format_question_refs_in_text,
+    normalize_question_id,
+    normalize_questions_list,
+)
 
 SESSION_FILE = Path(__file__).resolve().parent / "study_sessions.json"
+
+
+def _display_label(value: str) -> str:
+    """Turn internal ids like word_problem into readable labels."""
+    return value.replace("_", " ").strip()
+
+
+def _inject_pastel_theme() -> None:
+    st.markdown(
+        """
+        <style>
+          :root {
+            --pastel-bg: #f2f2f2;
+            --pastel-peach: #fde2c4;
+            --pastel-pink: #fbcce7;
+            --pastel-sky: #c5e9ff;
+            --pastel-lime: #d5ff80;
+            --pastel-yellow: #fff176;
+            --pastel-lavender: #d1c4e9;
+            --pastel-text: #2d3436;
+          }
+          .stApp {
+            background: linear-gradient(
+              165deg,
+              var(--pastel-bg) 0%,
+              #faf8fc 45%,
+              var(--pastel-peach) 100%
+            );
+          }
+          [data-testid="stSidebar"] {
+            background: linear-gradient(
+              180deg,
+              var(--pastel-sky) 0%,
+              var(--pastel-lavender) 100%
+            );
+          }
+          [data-testid="stSidebar"] * {
+            color: var(--pastel-text);
+          }
+          h1, h2, h3, h4 {
+            color: var(--pastel-text);
+          }
+          div[data-testid="stMetric"] {
+            background: var(--pastel-yellow);
+            border: 1px solid var(--pastel-lavender);
+            border-radius: 12px;
+            padding: 0.5rem 0.75rem;
+          }
+          div[data-testid="stExpander"] details {
+            border: 1px solid var(--pastel-lavender);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.55);
+          }
+          div[data-testid="stAlert"] {
+            border-radius: 12px;
+          }
+          .stSuccess {
+            background-color: var(--pastel-lime) !important;
+            color: var(--pastel-text) !important;
+          }
+          .stInfo {
+            background-color: var(--pastel-sky) !important;
+            color: var(--pastel-text) !important;
+          }
+          div.stButton > button[kind="primary"] {
+            background: linear-gradient(
+              90deg,
+              var(--pastel-lavender),
+              var(--pastel-pink)
+            );
+            color: var(--pastel-text);
+            border: 1px solid #c9b8e8;
+            border-radius: 999px;
+            font-weight: 600;
+          }
+          div.stButton > button[kind="primary"]:hover {
+            border-color: var(--pastel-text);
+            filter: brightness(1.03);
+          }
+          div.stButton > button[kind="secondary"] {
+            background: var(--pastel-peach);
+            color: var(--pastel-text);
+            border-radius: 999px;
+          }
+          [data-testid="stSpinner"] label {
+            white-space: nowrap;
+          }
+          @media (max-width: 640px) {
+            [data-testid="stSpinner"] label {
+              white-space: normal;
+            }
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _load_disk_sessions() -> list[dict[str, Any]]:
@@ -58,7 +161,7 @@ def _init_session_state() -> None:
 
 
 def _sidebar_settings() -> dict[str, Any]:
-    st.sidebar.header("Study setup")
+    st.sidebar.header("💡Study setup")
     grade = st.sidebar.selectbox("Grade", list(range(1, 13)), index=7)
     level = st.sidebar.selectbox(
         "Level",
@@ -101,7 +204,7 @@ def _sidebar_settings() -> dict[str, Any]:
     excerpt = merge_excerpt_parts(file_text, url_text, max_chars=12000)
 
     st.sidebar.divider()
-    st.sidebar.subheader("Past sessions")
+    st.sidebar.subheader("📚Past Study Sessions")
     if not st.session_state.cycles:
         st.sidebar.caption("Completed study cycles will appear here with your score.")
     else:
@@ -120,7 +223,7 @@ def _sidebar_settings() -> dict[str, Any]:
                 }
 
     st.sidebar.divider()
-    st.sidebar.subheader("Memory")
+    st.sidebar.subheader("🧠Memory")
     st.sidebar.caption(
         "Reset clears the current practice set and feedback from the screen. "
         "Optionally also remove every saved session below."
@@ -142,11 +245,40 @@ def _sidebar_settings() -> dict[str, Any]:
     }
 
 
+def _generate_practice_set(settings: dict[str, Any]) -> None:
+    if not settings["sections"].strip():
+        st.error("Please enter the sections or topics you are studying (sidebar).")
+        return
+    with st.spinner("Searching the web and drafting questions…"):
+        out = graph.invoke(
+            {
+                "messages": [],
+                "current_agent": "classification_agent",
+                "intent": "quiz",
+                "grade": settings["grade"],
+                "level": settings["level"],
+                "sections": settings["sections"].strip(),
+                "num_questions": settings["num_questions"],
+                "textbook_excerpt": settings["textbook_excerpt"],
+            }
+        )
+    st.session_state.active_pack = {
+        "pack_id": str(uuid.uuid4()),
+        "settings": settings,
+        "research_snippets": out.get("research_snippets", ""),
+        "questions": normalize_questions_list(out.get("questions", [])),
+    }
+    st.session_state.last_feedback = None
+    st.session_state.selected_cycle_idx = None
+    st.rerun()
+
+
 def main() -> None:
     st.set_page_config(page_title="Math tutor", layout="wide")
+    _inject_pastel_theme()
     _init_session_state()
 
-    st.title("At-home math tutor")
+    st.title("🧞Jinni: Your Intelligent Math Tutor💫")
     st.caption(
         "Generate practice from your grade and topics, check off what you got right, "
         "and get a short analysis plus links to follow-up materials."
@@ -156,34 +288,10 @@ def main() -> None:
 
     col_go, _ = st.columns([1, 4])
     with col_go:
-        gen = st.button("Generate practice set", type="primary")
+        gen_top = st.button("Generate practice set", type="primary", key="gen_top")
 
-    if gen:
-        if not settings["sections"].strip():
-            st.error("Please enter the sections or topics you are studying (sidebar).")
-        else:
-            with st.spinner("Searching the web and drafting questions…"):
-                out = graph.invoke(
-                    {
-                        "messages": [],
-                        "current_agent": "classification_agent",
-                        "intent": "quiz",
-                        "grade": settings["grade"],
-                        "level": settings["level"],
-                        "sections": settings["sections"].strip(),
-                        "num_questions": settings["num_questions"],
-                        "textbook_excerpt": settings["textbook_excerpt"],
-                    }
-                )
-            st.session_state.active_pack = {
-                "pack_id": str(uuid.uuid4()),
-                "settings": settings,
-                "research_snippets": out.get("research_snippets", ""),
-                "questions": out.get("questions", []),
-            }
-            st.session_state.last_feedback = None
-            st.session_state.selected_cycle_idx = None
-            st.rerun()
+    if gen_top:
+        _generate_practice_set(settings)
 
     if st.session_state.selected_cycle_idx is not None and st.session_state.last_feedback:
         st.info("Showing a saved session from the sidebar. Generate a new set to practice again.")
@@ -197,33 +305,42 @@ def main() -> None:
         st.caption("Check the box for each problem you solved correctly.")
         pack_id = pack.get("pack_id", "default")
         correct: set[str] = set()
-        for q in pack["questions"]:
-            qid = q["id"]
+        for i, q in enumerate(pack["questions"], start=1):
+            qid = normalize_question_id(str(q.get("id", "")), fallback_index=i)
+            label = qid
             fk = q.get("format_kind")
-            hdr = f"**{qid}** — _{q.get('concept', '')}_"
+            hdr = f"**{label}** — _{q.get('concept', '')}_"
             if fk:
-                hdr += f" · _{fk}_"
+                hdr += f" · _{_display_label(fk)}_"
             st.markdown(hdr)
             render_math_text(q["question"])
+            render_question_diagram(q.get("diagram"))
             if st.checkbox(
                 "I got this one correct",
                 key=f"correct_{pack_id}_{qid}",
             ):
                 correct.add(qid)
 
-            with st.expander(f"Show answer — {qid}", expanded=False):
+            with st.expander(f"Show answer — {label}", expanded=False):
                 render_math_text(q.get("answer", "") or "")
 
         if st.button("Submit results and get feedback", type="primary"):
-            qs = pack["questions"]
+            qs = normalize_questions_list(pack["questions"])
             if not qs:
                 st.error("No questions in this pack.")
             else:
                 base = {**pack["settings"], "questions": qs, "research_snippets": pack.get("research_snippets", "")}
-                all_ids = {str(q["id"]) for q in qs}
+                all_ids = {q["id"] for q in qs}
                 wrong_ids = sorted(all_ids - correct)
                 base["wrong_question_ids"] = wrong_ids
-                with st.spinner("Analyzing mistakes and gathering lecture-style resources…"):
+                total = len(qs)
+                perfect = len(wrong_ids) == 0 and total > 0
+                spinner = (
+                    "Gathering resources and your feedback…"
+                    if perfect
+                    else "Analyzing mistakes and gathering lecture-style resources…"
+                )
+                with st.spinner(spinner):
                     fb = graph.invoke(
                         {
                             "messages": [],
@@ -232,10 +349,10 @@ def main() -> None:
                             **base,
                         }
                     )
-                st.session_state.last_feedback = fb
-                total = len(qs)
                 wrong_n = len(wrong_ids)
                 score = round(100.0 * (total - wrong_n) / total, 1) if total else 0.0
+                fb["score_percent"] = score
+                st.session_state.last_feedback = fb
                 row = {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "grade": base["grade"],
@@ -258,13 +375,29 @@ def main() -> None:
     if fb:
         st.divider()
         st.subheader("Feedback for this cycle")
-        st.metric("Score (self-reported)", f"{fb.get('score_percent', 0)}%")
-        st.markdown("### What to focus on next")
-        render_math_text(fb.get("mistake_analysis", "") or "")
-        st.markdown("### Extra lecture-style materials (from web search)")
-        st.markdown(fb.get("learning_resources", "") or "")
+        score_pct = fb.get("score_percent", 0)
+        st.metric("Score (self-reported)", f"{score_pct}%")
+        perfect = score_pct == 100.0 or score_pct == 100
+        if perfect:
+            st.success("Perfect score — nice work!")
+        focus_heading = "Great job!" if perfect else "What to focus on next"
+        st.markdown(f"### {focus_heading}")
+        render_feedback_text(
+            format_question_refs_in_text(fb.get("mistake_analysis", "") or "")
+        )
+        st.markdown("### Videos and lessons to explore")
+        render_learning_resources(fb.get("learning_resources"))
         st.markdown("### Summary")
-        render_math_text(fb.get("cycle_summary", "") or "")
+        render_feedback_text(
+            format_question_refs_in_text(fb.get("cycle_summary", "") or "")
+        )
+
+    if st.session_state.last_feedback is not None:
+        st.divider()
+        col_bottom, _ = st.columns([1, 4])
+        with col_bottom:
+            if st.button("Generate practice set", type="primary", key="gen_bottom"):
+                _generate_practice_set(settings)
 
 
 if __name__ == "__main__":

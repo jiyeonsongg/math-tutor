@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import html
 import json
+import re
 import uuid
 
+import streamlit as st
 import streamlit.components.v1 as components
 
 _KATEX_CSS = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
@@ -80,3 +82,18 @@ def render_math_text(text: str) -> None:
 </script>
 </body></html>"""
     components.html(page, height=h, scrolling=True)
+
+
+def _markdown_for_streamlit(text: str) -> str:
+    """Map LaTeX delimiters used by the tutor to Streamlit markdown math."""
+    t = str(text)
+    t = re.sub(r"\\\[(.+?)\\\]", r"$$\1$$", t, flags=re.DOTALL)
+    t = re.sub(r"\\\((.+?)\\\)", r"$\1$", t, flags=re.DOTALL)
+    return t
+
+
+def render_feedback_text(text: str) -> None:
+    """Render agent feedback (headings, lists, bold) via Streamlit markdown."""
+    if not text or not str(text).strip():
+        return
+    st.markdown(_markdown_for_streamlit(text))

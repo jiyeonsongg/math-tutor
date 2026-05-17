@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 from typing import Any, Literal, get_args
 
@@ -10,6 +11,8 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from agents.state import TutorState
+from tools.diagram_models import QuestionDiagram
+from tools.learning_resources import fetch_learning_resource_hits
 from tools.web_search import firecrawl_search
 
 logger = logging.getLogger(__name__)
@@ -30,13 +33,52 @@ FormatKind = Literal[
 ]
 
 
+def normalize_question_id(qid: str, *, fallback_index: int | None = None) -> str:
+    """Use Q1, Q2, … labels (uppercase Q) for ordering."""
+    raw = (qid or "").strip()
+    m = re.match(r"^[Qq](\d+)$", raw)
+    if m:
+        return f"Q{m.group(1)}"
+    if fallback_index is not None:
+        return f"Q{fallback_index}"
+    return raw or (f"Q{fallback_index}" if fallback_index is not None else "Q1")
+
+
+def format_question_refs_in_text(text: str) -> str:
+    """Rewrite q3 / Question q3 style references to Q3 in agent-facing copy."""
+    if not text:
+        return text
+    t = re.sub(
+        r"(?i)\bquestion\s+q(\d+)\b",
+        lambda m: f"Question Q{m.group(1)}",
+        text,
+    )
+    return re.sub(r"\bq(\d+)\b", lambda m: f"Q{m.group(1)}", t, flags=re.IGNORECASE)
+
+
+def normalize_questions_list(questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for i, q in enumerate(questions, start=1):
+        row = dict(q)
+        row["id"] = normalize_question_id(str(q.get("id", "")), fallback_index=i)
+        out.append(row)
+    return out
+
+
 class QuizItem(BaseModel):
-    id: str = Field(description="Stable id for this item, e.g. q1")
+    id: str = Field(description="Stable id for this item, e.g. Q1")
     question: str
     answer: str
     concept: str = Field(description="Short math topic label, e.g. linear equations")
     format_kind: FormatKind = Field(
         description="Question presentation style; must vary across the batch (no duplicate format_kind)."
+    )
+    diagram: QuestionDiagram | None = Field(
+        default=None,
+        description=(
+            "Structured figure for geometry, graphs, shapes, or number-line items; "
+            "omit when a picture is not needed."
+        ),
     )
 
 
@@ -101,7 +143,15 @@ def _quiz_system_message(level: str) -> str:
         "- For money, write \"12 dollars\" / \"USD 12\", never a `$` currency sign.\n"
         "- Use proper LaTeX: `\\times`, `\\cdot`, `\\frac{a}{b}`, subscripts `x_1`, superscripts `x^2`, "
         "`\\leq`, `\\geq`.\n"
-        "- Complete, grammatical statements only.\n"
+        "- Complete, grammatical statements only.\n\n"
+        "VISUAL DIAGRAMS:\n"
+        "- When a problem involves geometry, the coordinate plane, graphs of equations, shapes, "
+        "angles, similar figures, circles, or a number line, include a `diagram` object that matches the figure.\n"
+        "- Set `diagram.type` to `none` or omit `diagram` for purely symbolic work with no figure.\n"
+        "- Types: `graph` (use `lines`, `graph_points`), `polygon` (`vertices`), `right_triangle`, "
+        "`rectangle`, `circle`, `number_line` (use `number_line_points`, `number_line_min`, `number_line_max`).\n"
+        "- Label sides, points, or lines in the diagram when the student needs them to solve the problem.\n"
+        "- Do not describe the picture only in words when a diagram would help — provide the diagram spec.\n"
         "When web search is available, use it to sample *current* problem styles and difficulty cues for the topic; "
         "still write original items."
     )
@@ -237,7 +287,7 @@ def generate_questions(state: TutorState) -> dict[str, Any]:
         sys = SystemMessage(content=_quiz_system_message(level))
         human = HumanMessage(
             content=user_payload
-            + f"\n\nReturn exactly {n} items with distinct ids q1..q{n} (or uuid-like ids). "
+            + f"\n\nReturn exactly {n} items with distinct ids Q1..Q{n} (uppercase Q, then number). "
             "Every question and answer must follow the LaTeX delimiter rules in the system message."
         )
         structured = chat_model().with_structured_output(QuizBatch)
@@ -245,8 +295,8 @@ def generate_questions(state: TutorState) -> dict[str, Any]:
 
     items = batch.items[:n]
     out: list[dict[str, Any]] = []
-    for it in items:
-        qid = it.id.strip() or str(uuid.uuid4())[:8]
+    for i, it in enumerate(items, start=1):
+        qid = normalize_question_id(it.id.strip(), fallback_index=i)
         out.append(
             {
                 "id": qid,
@@ -254,13 +304,18 @@ def generate_questions(state: TutorState) -> dict[str, Any]:
                 "answer": it.answer.strip(),
                 "concept": it.concept.strip(),
                 "format_kind": it.format_kind,
+                "diagram": (
+                    it.diagram.model_dump()
+                    if it.diagram is not None and it.diagram.type != "none"
+                    else None
+                ),
             }
         )
     while len(out) < n:
         i = len(out) + 1
         out.append(
             {
-                "id": f"q{i}",
+                "id": f"Q{i}",
                 "question": f"(Placeholder) Grade {grade} problem {i} on {sections}",
                 "answer": "N/A — regenerate if you see this.",
                 "concept": sections,
@@ -270,19 +325,41 @@ def generate_questions(state: TutorState) -> dict[str, Any]:
     return {"questions": out}
 
 
+def _is_perfect_score(state: TutorState) -> bool:
+    wrong = {normalize_question_id(w) for w in (state.get("wrong_question_ids") or [])}
+    questions = state.get("questions") or []
+    if not questions:
+        return False
+    return len(wrong) == 0
+
+
 def analyze_mistakes(state: TutorState) -> dict[str, Any]:
     wrong = set(state.get("wrong_question_ids") or [])
     questions = state.get("questions") or []
+    questions = normalize_questions_list(questions)
+    wrong = {normalize_question_id(w) for w in wrong}
     wrong_items = [q for q in questions if q.get("id") in wrong]
     grade = state.get("grade", 6)
     level = state.get("level", "basic")
-    sections = state.get("sections", "")
+    sections = state.get("sections", "").strip() or "this topic"
+
+    if not wrong_items and questions:
+        return {
+            "mistake_analysis": (
+                f"Congratulations — you got every problem correct on {sections}! "
+                "You seem ready to move on to the next topic. "
+                "Reload the study setup in the sidebar (pick a new section or try challenge or honor level), "
+                "then generate another practice set and keep practicing with me."
+            )
+        }
 
     sys = SystemMessage(
         content=(
             "You analyze student mistakes in math self-study. "
             "Infer likely misconceptions, procedural slips, or gaps in prerequisite knowledge. "
             "Be supportive and specific. Do not blame the student. "
+            "When referring to a problem, use its id exactly as given (Q1, Q2, … uppercase Q). "
+            "Never write q1, Question q3, or similar lowercase forms. "
             "When you write formulas, use LaTeX inside \\( and \\) for inline math; "
             "do not use bare `$` for math or currency (say 'dollars' or USD)."
         )
@@ -294,49 +371,65 @@ def analyze_mistakes(state: TutorState) -> dict[str, Any]:
                 "level": level,
                 "sections": sections,
                 "wrong_questions": wrong_items,
-                "note": "Student checked the problems they believe they solved correctly; unchecked items are treated as needing review.",
+                "note": (
+                    "Student checked the problems they believe they solved correctly; "
+                    "unchecked items are treated as needing review. "
+                    "Each wrong_questions entry has an id field (Q1, Q2, …)."
+                ),
             },
             ensure_ascii=False,
         )
     )
     resp = chat_model().invoke([sys, human])
     text = resp.content if isinstance(resp.content, str) else str(resp.content)
-    return {"mistake_analysis": text.strip()}
+    return {"mistake_analysis": format_question_refs_in_text(text.strip())}
 
 
 def find_learning_resources(state: TutorState) -> dict[str, Any]:
     grade = state.get("grade", 6)
     sections = state.get("sections", "")
-    questions = state.get("questions") or []
-    wrong = set(state.get("wrong_question_ids") or [])
+    questions = normalize_questions_list(state.get("questions") or [])
+    wrong = {normalize_question_id(w) for w in (state.get("wrong_question_ids") or [])}
     concepts = sorted(
         {q.get("concept", "") for q in questions if q.get("id") in wrong and q.get("concept")}
     )
     concept_str = ", ".join(concepts) if concepts else sections
 
-    queries = [
-        f"site:youtube.com grade {grade} math {concept_str} lesson",
-        f"grade {grade} math {concept_str} explained tutorial examples",
-    ]
-    snippets = firecrawl_search(queries, limit_per_query=4)
-    return {"learning_resources": snippets}
+    hits = fetch_learning_resource_hits(grade=grade, topic=concept_str, limit_per_group=4)
+    return {"learning_resources": hits}
 
 
 def summarize_cycle(state: TutorState) -> dict[str, Any]:
     grade = state.get("grade", 6)
     analysis = state.get("mistake_analysis", "")
     resources = state.get("learning_resources", "")
+    resource_notes = (
+        json.dumps(resources, ensure_ascii=False)
+        if isinstance(resources, list)
+        else (resources or "")
+    )
     questions = state.get("questions") or []
     wrong = set(state.get("wrong_question_ids") or [])
+    sections = state.get("sections", "").strip() or "this topic"
     total = len(questions)
     wrong_n = len(wrong)
     score = round(100.0 * (total - wrong_n) / total, 1) if total else 0.0
+
+    if _is_perfect_score(state):
+        summary = (
+            f"Perfect score on grade {grade} {sections} — great work! "
+            "You can treat this topic as solid for now. "
+            "When you want more practice, use the sidebar to choose your next section or a harder level. "
+            "Optional YouTube lessons for this topic are listed below if you want a quick review before moving on."
+        )
+        return {"cycle_summary": summary, "score_percent": score}
 
     sys = SystemMessage(
         content=(
             "Write a short wrap-up (3–6 sentences) for a student and parent. "
             "Mention what went well, what to review next, and how to use the suggested materials. "
             "Plain language, no bullet lists unless truly helpful. "
+            "Refer to problems as Q1, Q2, … (uppercase Q) when citing question numbers. "
             "If you include a formula, use LaTeX inside \\( and \\); avoid `$` math delimiters."
         )
     )
@@ -346,11 +439,14 @@ def summarize_cycle(state: TutorState) -> dict[str, Any]:
                 "grade": grade,
                 "score_percent": score,
                 "mistake_analysis": analysis[:8000],
-                "resource_notes": resources[:8000],
+                "resource_notes": resource_notes[:8000],
             },
             ensure_ascii=False,
         )
     )
     resp = chat_model().invoke([sys, human])
     text = resp.content if isinstance(resp.content, str) else str(resp.content)
-    return {"cycle_summary": text.strip(), "score_percent": score}
+    return {
+        "cycle_summary": format_question_refs_in_text(text.strip()),
+        "score_percent": score,
+    }
