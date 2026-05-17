@@ -109,13 +109,33 @@ def _inject_pastel_theme() -> None:
             color: var(--pastel-text);
             border-radius: 999px;
           }
-          /* Accent: sliders, checkboxes, radios (theme primary + explicit overrides) */
-          .stSlider [data-baseweb="slider"] > div > div {
+          /* Slider: accent on filled track + thumb; neutral unfilled track */
+          [data-testid="stSlider"] [data-baseweb="slider"] {
+            background-color: rgba(45, 52, 54, 0.12) !important;
+          }
+          [data-testid="stSlider"] [data-baseweb="slider"] > div > div:first-of-type {
             background-color: var(--pastel-accent-deep) !important;
           }
-          .stSlider [data-baseweb="slider"] [role="slider"] {
+          [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
             background-color: var(--pastel-accent) !important;
             border-color: var(--pastel-accent-deep) !important;
+          }
+          [data-testid="stSlider"] [data-testid="stTickBarMin"],
+          [data-testid="stSlider"] [data-testid="stTickBarMax"],
+          [data-testid="stSlider"] label,
+          [data-testid="stSlider"] label * {
+            background: transparent !important;
+            background-color: transparent !important;
+            color: var(--pastel-text) !important;
+          }
+          /* Checkbox: accent on the box + check only */
+          [data-testid="stCheckbox"] label,
+          [data-testid="stCheckbox"] label p,
+          [data-testid="stCheckbox"] label span,
+          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            color: var(--pastel-text) !important;
           }
           [data-testid="stCheckbox"] [data-checked="true"],
           [data-testid="stCheckbox"] input:checked + div {
@@ -125,31 +145,51 @@ def _inject_pastel_theme() -> None:
           [data-testid="stCheckbox"] svg {
             stroke: #ffffff !important;
           }
-          /* Scrollbars (sidebar + main) */
+          /* Main page: neutral vertical scrollbar (no bright bar on the right) */
           .stApp,
-          [data-testid="stSidebar"] {
-            scrollbar-color: var(--pastel-accent-deep) rgba(255, 255, 255, 0.45);
+          [data-testid="stAppViewContainer"],
+          [data-testid="stMain"],
+          [data-testid="stMainBlockContainer"],
+          section.main {
+            scrollbar-color: rgba(45, 52, 54, 0.22) transparent;
             scrollbar-width: thin;
           }
           .stApp ::-webkit-scrollbar,
-          [data-testid="stSidebar"] ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+          [data-testid="stAppViewContainer"] ::-webkit-scrollbar,
+          [data-testid="stMain"] ::-webkit-scrollbar,
+          section.main ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
           }
           .stApp ::-webkit-scrollbar-thumb,
-          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
-            background: linear-gradient(
-              180deg,
-              var(--pastel-accent),
-              var(--pastel-accent-deep)
-            );
-            border-radius: 8px;
-            border: 2px solid rgba(255, 255, 255, 0.35);
+          [data-testid="stAppViewContainer"] ::-webkit-scrollbar-thumb,
+          [data-testid="stMain"] ::-webkit-scrollbar-thumb,
+          section.main ::-webkit-scrollbar-thumb {
+            background: rgba(45, 52, 54, 0.2);
+            border-radius: 6px;
           }
           .stApp ::-webkit-scrollbar-track,
+          [data-testid="stAppViewContainer"] ::-webkit-scrollbar-track,
+          [data-testid="stMain"] ::-webkit-scrollbar-track,
+          section.main ::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          /* Sidebar: soft pink scrollbar thumb only */
+          [data-testid="stSidebar"] {
+            scrollbar-color: rgba(255, 107, 138, 0.55) rgba(255, 255, 255, 0.25);
+            scrollbar-width: thin;
+          }
+          [data-testid="stSidebar"] ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+            background: rgba(255, 107, 138, 0.45);
+            border-radius: 6px;
+          }
           [data-testid="stSidebar"] ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.35);
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
           }
           [data-testid="stSpinner"] label {
             white-space: nowrap;
