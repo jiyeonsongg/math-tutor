@@ -42,13 +42,24 @@ def _inject_pastel_theme() -> None:
             --pastel-lime: #d5ff80;
             --pastel-yellow: #fff176;
             --pastel-lavender: #d1c4e9;
-            --pastel-accent: #ff6b8a;
-            --pastel-accent-deep: #ff7043;
+            --pastel-coral: #f5a097;
+            --pastel-coral-deep: #e8877f;
             --pastel-text: #2d3436;
           }
+          /* Slider thumb — warm coral (filled track uses theme primaryColor) */
+          [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
+            background-color: var(--pastel-coral) !important;
+            border-color: var(--pastel-coral-deep) !important;
+          }
+          /* Checkbox — warm coral when checked */
+          label[data-baseweb="checkbox"] > div:first-of-type {
+            border-color: var(--pastel-coral-deep) !important;
+          }
+          label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
+            background-color: var(--pastel-coral) !important;
+            border-color: var(--pastel-coral-deep) !important;
+          }
           .stApp {
-            /* Neutral primary for Streamlit internals; pink only where we target below */
-            --primary-color: #9aaab3 !important;
             background: linear-gradient(
               165deg,
               var(--pastel-bg) 0%,
@@ -110,90 +121,6 @@ def _inject_pastel_theme() -> None:
             background: var(--pastel-peach);
             color: var(--pastel-text);
             border-radius: 999px;
-          }
-          /* Slider: pink thumb + filled bar only (not labels, ticks, or values) */
-          [data-testid="stSlider"] [data-baseweb="slider"] > div:nth-child(1) {
-            background-color: rgba(45, 52, 54, 0.14) !important;
-          }
-          [data-testid="stSlider"] [data-baseweb="slider"] > div:nth-child(2) {
-            background-color: var(--pastel-accent-deep) !important;
-          }
-          [data-testid="stSlider"] [role="slider"] {
-            background-color: var(--pastel-accent) !important;
-            border-color: var(--pastel-accent-deep) !important;
-          }
-          [data-testid="stSlider"] label,
-          [data-testid="stSlider"] label *,
-          [data-testid="stSlider"] [data-testid="stTickBarMin"],
-          [data-testid="stSlider"] [data-testid="stTickBarMax"],
-          [data-testid="stSlider"] [data-testid="stThumbValue"] {
-            background: none !important;
-            background-color: transparent !important;
-            color: var(--pastel-text) !important;
-          }
-          /* Checkbox: pink on the small box only (not label row / markdown) */
-          [data-testid="stCheckbox"] label,
-          [data-testid="stCheckbox"] label p,
-          [data-testid="stCheckbox"] label span,
-          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"],
-          [data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] p {
-            background: none !important;
-            background-color: transparent !important;
-            color: var(--pastel-text) !important;
-          }
-          [data-testid="stCheckbox"] label > div:first-child,
-          [data-testid="stCheckbox"] label > span:first-child {
-            background: transparent !important;
-            flex: 0 0 auto !important;
-            width: auto !important;
-            max-width: 1.5rem !important;
-          }
-          [data-testid="stCheckbox"]:has(input:checked) label > div:first-child > div,
-          [data-testid="stCheckbox"]:has(input:checked) label > span:first-child > div {
-            background-color: var(--pastel-accent) !important;
-            border-color: var(--pastel-accent-deep) !important;
-          }
-          [data-testid="stCheckbox"]:has(input:checked) label > div:first-child svg,
-          [data-testid="stCheckbox"]:has(input:checked) label > span:first-child svg {
-            stroke: #ffffff !important;
-          }
-          /* All scrollbars: neutral thumb + light gray track (no pink) */
-          .stApp,
-          [data-testid="stAppViewContainer"],
-          [data-testid="stMain"],
-          [data-testid="stMainBlockContainer"],
-          section.main,
-          [data-testid="stSidebar"],
-          [data-testid="stSidebar"] > div:first-child {
-            scrollbar-color: rgba(45, 52, 54, 0.3) rgba(236, 239, 243, 0.95);
-            scrollbar-width: thin;
-          }
-          .stApp ::-webkit-scrollbar,
-          [data-testid="stAppViewContainer"] ::-webkit-scrollbar,
-          [data-testid="stMain"] ::-webkit-scrollbar,
-          section.main ::-webkit-scrollbar,
-          [data-testid="stSidebar"] ::-webkit-scrollbar,
-          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-          }
-          .stApp ::-webkit-scrollbar-thumb,
-          [data-testid="stAppViewContainer"] ::-webkit-scrollbar-thumb,
-          [data-testid="stMain"] ::-webkit-scrollbar-thumb,
-          section.main ::-webkit-scrollbar-thumb,
-          [data-testid="stSidebar"] ::-webkit-scrollbar-thumb,
-          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar-thumb {
-            background: rgba(45, 52, 54, 0.28);
-            border-radius: 6px;
-          }
-          .stApp ::-webkit-scrollbar-track,
-          [data-testid="stAppViewContainer"] ::-webkit-scrollbar-track,
-          [data-testid="stMain"] ::-webkit-scrollbar-track,
-          section.main ::-webkit-scrollbar-track,
-          [data-testid="stSidebar"] ::-webkit-scrollbar-track,
-          [data-testid="stSidebar"] > div:first-child ::-webkit-scrollbar-track {
-            background: rgba(236, 239, 243, 0.95);
-            border-radius: 6px;
           }
           [data-testid="stSpinner"] label {
             white-space: nowrap;
