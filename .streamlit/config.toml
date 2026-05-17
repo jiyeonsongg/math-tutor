@@ -1,6 +1,7 @@
 [theme]
 base = "light"
-primaryColor = "#ff6b8a"
+# Neutral primary so Streamlit does not paint labels/ticks pink; accent via app.css
+primaryColor = "#9aaab3"
 backgroundColor = "#f2f2f2"
 secondaryBackgroundColor = "#c5e9ff"
 textColor = "#2d3436"
