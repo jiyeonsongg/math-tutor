@@ -144,7 +144,11 @@ def reset_memory(*, include_saved_sessions: bool = False) -> None:
         st.session_state.cycles = []
         _save_disk_sessions([])
     for k in list(st.session_state.keys()):
-        if isinstance(k, str) and (k.startswith("wrong_") or k.startswith("correct_")):
+        if isinstance(k, str) and (
+            k.startswith("wrong_")
+            or k.startswith("correct_")
+            or k.startswith("diag_zoom_")
+        ):
             del st.session_state[k]
     st.rerun()
 
@@ -314,7 +318,8 @@ def main() -> None:
                 hdr += f" · _{_display_label(fk)}_"
             st.markdown(hdr)
             render_math_text(q["question"])
-            render_question_diagram(q.get("diagram"))
+            if q.get("diagram"):
+                render_question_diagram(q["diagram"], control_key=f"{pack_id}_{qid}")
             if st.checkbox(
                 "I got this one correct",
                 key=f"correct_{pack_id}_{qid}",
