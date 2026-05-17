@@ -1,7 +1,7 @@
 # Streamlit Community Cloud installs from this file (not pyproject.toml).
 beautifulsoup4==4.13.4
 ddgs==9.14.2
-extra-streamlit-components>=0.1.71
+extra-streamlit-components==0.1.81
 firecrawl-py==2.16
 grandalf==0.8
 httpx==0.28.1
