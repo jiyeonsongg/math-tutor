@@ -1,0 +1,18 @@
+# Streamlit Community Cloud installs from this file (not pyproject.toml).
+beautifulsoup4==4.13.4
+ddgs==9.14.2
+firecrawl-py==2.16
+grandalf==0.8
+httpx==0.28.1
+langchain[openai]==0.3.27
+langgraph==0.6.6
+langgraph-checkpoint-sqlite==2.0.11
+langgraph-cli[inmem]==0.4.0
+langgraph-supervisor==0.0.29
+langgraph-swarm==0.0.14
+matplotlib>=3.8.0
+openai>=2.36,<3
+pypdf==5.6.0
+python-docx==1.2.0
+python-dotenv==1.1.1
+streamlit==1.45.0
