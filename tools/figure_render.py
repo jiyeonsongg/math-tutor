@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import Any
 
@@ -16,30 +17,18 @@ from tools.diagram_models import QuestionDiagram
 
 logger = logging.getLogger(__name__)
 
-# Room inside the figure so labels, legend, and points are not clipped in Streamlit.
+# Room inside the figure so labels, legend, and points are not clipped.
 _FIGSIZE_SQUARE = (4.6, 4.6)
 _FIGSIZE_WIDE = (6.0, 2.4)
 _PAD_FRAC = 0.18
-ZOOM_MIN = 0.35
-ZOOM_MAX = 3.0
-ZOOM_IN_STEP = 0.82
-ZOOM_OUT_STEP = 1.22
 
-
-def _apply_zoom(
-    x0: float,
-    x1: float,
-    y0: float,
-    y1: float,
-    zoom: float,
-) -> tuple[float, float, float, float]:
-    """Smaller zoom factor = tighter limits = zoomed in."""
-    if abs(zoom - 1.0) < 1e-9:
-        return x0, x1, y0, y1
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    half_x = (x1 - x0) / 2 * zoom
-    half_y = (y1 - y0) / 2 * zoom
-    return cx - half_x, cx + half_x, cy - half_y, cy + half_y
+# Display scale for the whole figure (not axis cropping).
+DISPLAY_WIDTH_DEFAULT = 680
+DISPLAY_WIDTH_WIDE = 820
+ZOOM_MIN = 0.45
+ZOOM_MAX = 2.5
+ZOOM_IN_STEP = 1.18
+ZOOM_OUT_STEP = 0.86
 
 
 def _padded_limits(
@@ -99,9 +88,9 @@ def _style_axes(ax: plt.Axes, *, title: str, equal_aspect: bool = False) -> None
         ax.set_aspect("equal", adjustable="box")
 
 
-def _draw_graph(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_graph(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_SQUARE)
-    x0, x1, y0, y1 = _apply_zoom(*_graph_limits(d), zoom)
+    x0, x1, y0, y1 = _graph_limits(d)
     if d.show_grid:
         ax.grid(True, alpha=0.35)
     ax.set_xlim(x0, x1)
@@ -129,7 +118,7 @@ def _draw_graph(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def _draw_polygon(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_polygon(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_SQUARE)
     if d.show_grid:
         ax.grid(True, alpha=0.35)
@@ -143,7 +132,7 @@ def _draw_polygon(d: Any, *, zoom: float = 1.0) -> plt.Figure:
         ax.plot(v.x, v.y, "o", color="#c2185b", markersize=6)
         if v.label:
             ax.annotate(v.label, (v.x, v.y), textcoords="offset points", xytext=(6, 6), fontsize=9)
-    x0, x1, y0, y1 = _apply_zoom(*_padded_limits(min(xs), max(xs), min(ys), max(ys)), zoom)
+    x0, x1, y0, y1 = _padded_limits(min(xs), max(xs), min(ys), max(ys))
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     _style_axes(ax, title=d.title, equal_aspect=True)
@@ -151,7 +140,7 @@ def _draw_polygon(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def _draw_right_triangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_right_triangle(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_SQUARE)
     if d.show_grid:
         ax.grid(True, alpha=0.35)
@@ -165,10 +154,7 @@ def _draw_right_triangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
         ax.annotate(d.label_vertical, (0, d.leg_y / 2), textcoords="offset points", xytext=(-12, 0), va="center")
     if d.label_hypotenuse:
         ax.annotate(d.label_hypotenuse, (d.leg_x / 2, d.leg_y / 2), fontsize=9)
-    x0, x1, y0, y1 = _apply_zoom(
-        *_padded_limits(0, d.leg_x, 0, d.leg_y, pad_frac=0.22),
-        zoom,
-    )
+    x0, x1, y0, y1 = _padded_limits(0, d.leg_x, 0, d.leg_y, pad_frac=0.22)
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     _style_axes(ax, title=d.title, equal_aspect=True)
@@ -176,7 +162,7 @@ def _draw_right_triangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def _draw_rectangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_rectangle(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_SQUARE)
     ax.grid(True, alpha=0.35)
     rect = Rectangle((0, 0), d.width, d.height, fill=False, edgecolor="#1565c0", linewidth=2)
@@ -185,10 +171,7 @@ def _draw_rectangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
         ax.annotate(d.label_width, (d.width / 2, 0), textcoords="offset points", xytext=(0, -12), ha="center")
     if d.label_height:
         ax.annotate(d.label_height, (0, d.height / 2), textcoords="offset points", xytext=(-14, 0), va="center")
-    x0, x1, y0, y1 = _apply_zoom(
-        *_padded_limits(0, d.width, 0, d.height, pad_frac=0.22),
-        zoom,
-    )
+    x0, x1, y0, y1 = _padded_limits(0, d.width, 0, d.height, pad_frac=0.22)
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     _style_axes(ax, title=d.title, equal_aspect=True)
@@ -196,22 +179,19 @@ def _draw_rectangle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def _draw_circle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_circle(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_SQUARE)
     if d.show_grid:
         ax.grid(True, alpha=0.35)
     circ = Circle((d.center_x, d.center_y), d.radius, fill=False, edgecolor="#1565c0", linewidth=2)
     ax.add_patch(circ)
     ax.plot(d.center_x, d.center_y, "o", color="#c2185b", markersize=6)
-    x0, x1, y0, y1 = _apply_zoom(
-        *_padded_limits(
-            d.center_x - d.radius,
-            d.center_x + d.radius,
-            d.center_y - d.radius,
-            d.center_y + d.radius,
-            pad_frac=0.22,
-        ),
-        zoom,
+    x0, x1, y0, y1 = _padded_limits(
+        d.center_x - d.radius,
+        d.center_x + d.radius,
+        d.center_y - d.radius,
+        d.center_y + d.radius,
+        pad_frac=0.22,
     )
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -220,7 +200,7 @@ def _draw_circle(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def _draw_number_line(d: Any, *, zoom: float = 1.0) -> plt.Figure:
+def _draw_number_line(d: Any) -> plt.Figure:
     fig, ax = plt.subplots(figsize=_FIGSIZE_WIDE)
     ax.axhline(0.5, color="#333", linewidth=2)
     for t in range(int(d.number_line_min), int(d.number_line_max) + 1):
@@ -232,9 +212,7 @@ def _draw_number_line(d: Any, *, zoom: float = 1.0) -> plt.Figure:
         ax.annotate(label, (pt.value, 0.5), textcoords="offset points", xytext=(0, 14), ha="center", fontsize=9)
     span = (d.number_line_max - d.number_line_min) or 1.0
     side = max(0.8, span * 0.12)
-    x0, x1 = d.number_line_min - side, d.number_line_max + side
-    x0, x1, _, _ = _apply_zoom(x0, x1, 0.0, 1.0, zoom)
-    ax.set_xlim(x0, x1)
+    ax.set_xlim(d.number_line_min - side, d.number_line_max + side)
     ax.set_ylim(-0.05, 1.12)
     ax.axis("off")
     if d.title:
@@ -243,56 +221,85 @@ def _draw_number_line(d: Any, *, zoom: float = 1.0) -> plt.Figure:
     return fig
 
 
-def build_figure(diagram: Any, *, zoom: float = 1.0) -> plt.Figure | None:
+def build_figure(diagram: Any) -> plt.Figure | None:
     parsed = _parse_diagram(diagram)
     if parsed is None:
         return None
     kind = parsed.type
     if kind == "graph":
-        return _draw_graph(parsed, zoom=zoom)
+        return _draw_graph(parsed)
     if kind == "polygon":
-        return _draw_polygon(parsed, zoom=zoom)
+        return _draw_polygon(parsed)
     if kind == "right_triangle":
-        return _draw_right_triangle(parsed, zoom=zoom)
+        return _draw_right_triangle(parsed)
     if kind == "rectangle":
-        return _draw_rectangle(parsed, zoom=zoom)
+        return _draw_rectangle(parsed)
     if kind == "circle":
-        return _draw_circle(parsed, zoom=zoom)
+        return _draw_circle(parsed)
     if kind == "number_line":
-        return _draw_number_line(parsed, zoom=zoom)
+        return _draw_number_line(parsed)
     return None
 
 
+def _figure_png(fig: plt.Figure) -> bytes:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight", pad_inches=0.35)
+    plt.close(fig)
+    return buf.getvalue()
+
+
 def render_question_diagram(diagram: Any, *, control_key: str) -> None:
-    """Draw diagram with + / − zoom controls (per question)."""
+    """Draw diagram with + / − to scale the whole figure larger or smaller."""
     if not diagram:
+        return
+
+    parsed = _parse_diagram(diagram)
+    if parsed is None:
         return
 
     zoom_key = f"diag_zoom_{control_key}"
     if zoom_key not in st.session_state:
         st.session_state[zoom_key] = 1.0
 
-    z_in, z_out, z_reset, _ = st.columns([0.07, 0.07, 0.08, 0.78])
+    # Integer column weights — tiny fractional widths clip single-char labels on pill buttons.
+    z_in, z_out, z_reset, _ = st.columns([1, 1, 2, 12], gap="small")
     with z_in:
-        if st.button("+", key=f"zoom_in_{control_key}", help="Zoom in"):
-            st.session_state[zoom_key] = max(ZOOM_MIN, st.session_state[zoom_key] * ZOOM_IN_STEP)
+        if st.button(
+            "＋",
+            key=f"zoom_in_{control_key}",
+            help="Make the figure larger",
+            use_container_width=True,
+        ):
+            st.session_state[zoom_key] = min(ZOOM_MAX, st.session_state[zoom_key] * ZOOM_IN_STEP)
             st.rerun()
     with z_out:
-        if st.button("−", key=f"zoom_out_{control_key}", help="Zoom out"):
-            st.session_state[zoom_key] = min(ZOOM_MAX, st.session_state[zoom_key] * ZOOM_OUT_STEP)
+        if st.button(
+            "－",
+            key=f"zoom_out_{control_key}",
+            help="Make the figure smaller",
+            use_container_width=True,
+        ):
+            st.session_state[zoom_key] = max(ZOOM_MIN, st.session_state[zoom_key] * ZOOM_OUT_STEP)
             st.rerun()
     with z_reset:
-        if st.button("Reset", key=f"zoom_reset_{control_key}", help="Reset zoom"):
+        if st.button(
+            "Reset",
+            key=f"zoom_reset_{control_key}",
+            help="Reset figure size",
+            use_container_width=True,
+        ):
             st.session_state[zoom_key] = 1.0
             st.rerun()
 
-    zoom = float(st.session_state[zoom_key])
+    scale = float(st.session_state[zoom_key])
+    base_w = DISPLAY_WIDTH_WIDE if parsed.type == "number_line" else DISPLAY_WIDTH_DEFAULT
+    display_w = max(200, int(base_w * scale))
+
     try:
-        fig = build_figure(diagram, zoom=zoom)
+        fig = build_figure(diagram)
         if fig is None:
             return
-        st.pyplot(fig, clear_figure=True, use_container_width=True, bbox_inches="tight", pad_inches=0.35)
-        plt.close(fig)
+        st.image(_figure_png(fig), width=display_w)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Diagram render failed: %s", exc)
         st.caption("Figure could not be drawn for this question.")
