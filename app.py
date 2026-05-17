@@ -51,13 +51,28 @@ def _inject_pastel_theme() -> None:
             background-color: var(--pastel-coral) !important;
             border-color: var(--pastel-coral-deep) !important;
           }
-          /* Checkbox — warm coral when checked */
+          /* Checkbox — coral on the square only, not the label text */
+          label[data-baseweb="checkbox"] {
+            background: transparent !important;
+          }
           label[data-baseweb="checkbox"] > div:first-of-type {
+            flex: 0 0 auto !important;
+            width: 1.125rem !important;
+            height: 1.125rem !important;
+            min-width: 1.125rem !important;
+            max-width: 1.125rem !important;
             border-color: var(--pastel-coral-deep) !important;
           }
           label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
             background-color: var(--pastel-coral) !important;
             border-color: var(--pastel-coral-deep) !important;
+          }
+          label[data-baseweb="checkbox"] [data-testid="stMarkdownContainer"],
+          label[data-baseweb="checkbox"] > div:last-of-type,
+          [data-testid="stCheckbox"] label,
+          [data-testid="stCheckbox"] label p,
+          [data-testid="stCheckbox"] label span {
+            background: transparent !important;
           }
           .stApp {
             background: linear-gradient(
